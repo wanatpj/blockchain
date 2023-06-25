@@ -1,0 +1,14 @@
+api: valuepedia.org/v1alpha1
+kind: Blockchain
+metadata:
+spec:
+  consensus:
+    type: pow
+  policy:
+    id:
+      public: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQDDsIgim0rddN9q+phI1sCgtjiSD2D8Ldv0QjNewJIpLAJo8dK4lLn3kqd/3EnVqzuOlIdxf2GXbT+hQGu4skahB1PT4O9mNFtg/K5H8M5QwR2RL3BcBJU2ycKr368RFCejufsrrc3O/uAsNlv34xbfwXViQ5WV9OsfFaCRzFtPaw== sample.blockchain"
+      # private: ""
+  snapshot:
+    every: 1M
+    retention:
+      count: 2
