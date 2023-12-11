@@ -1,0 +1,25 @@
+api: valuepedia.org/v1alpha1
+kind: Blockchain
+metadata:
+spec:
+  id: [pub key]
+  consensus:
+    type: pos-??
+    spec:
+      nodes:
+        - id: [pub key]
+          ip: [generated]
+  policy:
+    transfers:
+      constraints:
+        - positive
+        - signed-by-sender
+    portfolio:
+      netting:
+        groups:
+          - all
+        strategy: ??
+      invariants:
+        - non-negative
+        - constant-23
+        - zero-sum

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Self
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -38,7 +37,7 @@ class Crypto:
             return False
 
     @classmethod
-    def gen(cls) -> Self:
+    def gen(cls) -> "Crypto":
         private = rsa.generate_private(
             public_exponent=65537, key_size=2048, backend=default_backend()
         )

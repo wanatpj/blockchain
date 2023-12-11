@@ -1,43 +1,82 @@
 from dataclasses import dataclass
-from typing import Generic, List
+from typing import Callable, Dict, Generic, Optional, Sequence, TypeVar, Type
 
-from cryptography.hazmat.primitives.asymmetric import rsa
-
-from blockchain.block import Block
+from blockchain.consensus import Consensus
 from blockchain.crypto import Crypto
-from blockchain.policy import ChainPolicy
+from blockchain.policy import Policy
 
-POLICY_TYPE = TypeVar("POLICY_TYPE")
+
 BLOCK_TYPE = TypeVar("BLOCK_TYPE")
 SUMMARY_TYPE = TypeVar("SUMMARY_TYPE")
 
+NULL_HASH = ""
 
-class Blockchain(Generic[BLOCK_TYPE, SUMMARY_TYPE]):
-    def __init__(self, config: dict):
-        self.chain: List[Block[ChainPolicy | BLOCK_TYPE | SUMMARY_TYPE]] = []
-        self.create_genesis_block(policy_config=config["policy"])
-        self.crypto = Crypto(**config["id"])
 
-    def create_genesis_block(self, policy_config):
-        self.chain.append(
-            Block[ChainPolicy](
-                data=ChainPolicy.build(policy_config=policy_config),
-                previous_hash=0,
-                crypto=self.crypto,
+class Block(Generic[BLOCK_TYPE]):
+    @dataclass
+    class Builder:
+        consensus: Consensus
+
+        def build(self, data: BLOCK_TYPE, previous_hash: str) -> "Block[BLOCK_TYPE]":
+            return Block[BLOCK_TYPE](
+                data=data,
+                previous_hash=previous_hash,
+                hash=self.consensus.build(f"{previous_hash}#{data}"),
             )
-        )
 
-    def add_block(self, data: BLOCK_TYPE):
-        self.chain.append(
-            Block[BLOCK_TYPE](
-                data=data, previous_block=self.chain[-1], crypto=self.crypto
-            )
-        )
+    def __init__(self, data: BLOCK_TYPE, previous_hash: str, hash: str):
+        self.data = data
+        self.previous_hash = previous_hash
+        self.hash = hash
 
-    @classmethod
-    def build_new(cls):
-        pass
+    def __eq__(self, other):
+        if not isinstance(other, Block):
+            return False
 
-    @classmethod
-    def gen(cls) -> "Blockchain":
-        pass
+        return self.hash == other.hash
+
+    def __repr__(self):
+        return f"Block(data={self.data}, previous_hash={self.previous_hash}, hash={self.hash})"
+
+
+class Blockchain(Generic[BLOCK_TYPE]):
+    def __init__(self, consensus: Consensus):
+        self.consensus = consensus
+        self.block_builder = Block[BLOCK_TYPE].Builder(consensus=consensus)
+        self.branch_blockhash: Dict[str, str] = {}
+        self.block: Dict[str, Block[BLOCK_TYPE]] = {}
+
+    def add_block(self, block: BLOCK_TYPE, branch: str = "local") -> None:
+        current_block = self.current_block(branch)
+        previous_hash = current_block.hash if current_block else NULL_HASH
+        block = self.block_builder.build(data=block, previous_hash=previous_hash)
+        self.branch_blockhash[branch] = block.hash
+        self.block[block.hash] = block
+
+    def chain(self, branch: str = "local") -> Sequence[Block[BLOCK_TYPE]]:
+        current_block = self.current_block(branch)
+        reversed_results = []
+        while current_block:
+            reversed_results.append(current_block)
+            current_block = self.block.get(current_block.previous_hash)
+        return list(reversed(reversed_results))
+
+    def raw_chain(self, branch: str = "local") -> Sequence[Block[BLOCK_TYPE]]:
+        return list(map(lambda x: x.data, self.chain(branch)))
+
+    def current_block(self, branch: str = "local") -> Optional[Block[BLOCK_TYPE]]:
+        return self.block.get(self.branch_blockhash.get(branch))
+
+
+class SummaryBlockchain(Generic[SUMMARY_TYPE, BLOCK_TYPE], Blockchain[BLOCK_TYPE]):
+    def __init__(self, consensus: Consensus, summary_factory: Type[Callable[[Policy], SUMMARY_TYPE]], summary_policy: Optional[Policy] = None):
+        super().__init__(consensus)
+        self._summary: SUMMARY_TYPE = summary_factory(summary_policy)
+
+    def add_block(self, block: BLOCK_TYPE, branch: str = "local") -> None:
+        with self._summary:
+            self._summary.reduce(block)
+            super().add_block(block, branch=branch)
+
+    def summary(self):
+        return self._summary

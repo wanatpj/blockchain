@@ -2,6 +2,7 @@ api: valuepedia.org/v1alpha1
 kind: Blockchain
 metadata:
 spec:
+  id: [pub key]
   consensus:
     type: pow
   policy:
