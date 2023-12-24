@@ -16,8 +16,11 @@ class Block(Generic[BLOCK_TYPE]):
     @dataclass
     class Builder:
         consensus: Consensus
+        policy: Optional[Policy] = None
 
         def build(self, data: BLOCK_TYPE, previous_hash: str) -> "Block[BLOCK_TYPE]":
+            if self.policy:
+                self.policy.validate(data)
             return Block[BLOCK_TYPE](
                 data=data,
                 previous_hash=previous_hash,
@@ -40,16 +43,16 @@ class Block(Generic[BLOCK_TYPE]):
 
 
 class Blockchain(Generic[BLOCK_TYPE]):
-    def __init__(self, consensus: Consensus):
+    def __init__(self, consensus: Consensus, policy: Optional[Policy] = None):
         self.consensus = consensus
-        self.block_builder = Block[BLOCK_TYPE].Builder(consensus=consensus)
+        self.block_builder = Block[BLOCK_TYPE].Builder(consensus=consensus, policy=policy)
         self.branch_blockhash: Dict[str, str] = {}
         self.block: Dict[str, Block[BLOCK_TYPE]] = {}
 
-    def add_block(self, block: BLOCK_TYPE, branch: str = "local") -> None:
+    def add_block(self, block_data: BLOCK_TYPE, branch: str = "local") -> None:
         current_block = self.current_block(branch)
         previous_hash = current_block.hash if current_block else NULL_HASH
-        block = self.block_builder.build(data=block, previous_hash=previous_hash)
+        block = self.block_builder.build(data=block_data, previous_hash=previous_hash)
         self.branch_blockhash[branch] = block.hash
         self.block[block.hash] = block
 
@@ -69,7 +72,12 @@ class Blockchain(Generic[BLOCK_TYPE]):
 
 
 class SummaryBlockchain(Generic[SUMMARY_TYPE, BLOCK_TYPE], Blockchain[BLOCK_TYPE]):
-    def __init__(self, consensus: Consensus, summary_factory: Type[Callable[[Policy], SUMMARY_TYPE]], summary_policy: Optional[Policy] = None):
+    def __init__(
+        self,
+        consensus: Consensus,
+        summary_factory: Type[Callable[[Policy], SUMMARY_TYPE]],
+        summary_policy: Optional[Policy] = None,
+    ):
         super().__init__(consensus)
         self._summary: SUMMARY_TYPE = summary_factory(summary_policy)
 

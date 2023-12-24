@@ -8,5 +8,5 @@ HINT = TypeVar("HINT")
 
 class Policy(Generic[POLICY_SUBJECT, HINT]):
     @abstractmethod
-    def validate(self, subject: POLICY_SUBJECT, hint: Optional[HINT] = None):
+    def validate(self, subject: POLICY_SUBJECT, hint: Optional[HINT] = None) -> None:
         ...

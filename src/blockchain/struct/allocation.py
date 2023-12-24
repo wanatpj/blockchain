@@ -1,16 +1,9 @@
 from collections import defaultdict
-from dataclasses import dataclass
 from types import TracebackType
 from typing import Optional
 
 from blockchain.policy.core import Policy
-
-
-@dataclass
-class Trade:
-    src: int
-    dst: int
-    value: int
+from blockchain.struct.trade import Trade
 
 
 class AllocationError(Exception):

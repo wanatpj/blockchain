@@ -1,8 +1,13 @@
 from dataclasses import dataclass
 
+import pytest
+
 from blockchain.blockchain import Block, Blockchain, SummaryBlockchain
 from blockchain.consensus.core import SimpleConsnsus
-from blockchain.proto import Allocation, Trade
+from blockchain.crypto import Crypto, RSACrypto
+from blockchain.policy.sign import IncorrectSignatureError, SingleSignPolicy
+from blockchain.struct.allocation import Allocation
+from blockchain.struct.trade import SignedTrade, Trade
 
 
 CONFIG_DIR = "config/sample"
@@ -73,3 +78,23 @@ def test_trade_blockchain():
         4: -4,
         1: 7,
     } == blockchain.summary().as_dict()
+
+
+def test_trade_blockchain_with_single_sign_policy():
+    crypto: Crypto = RSACrypto.gen()
+    policy = SingleSignPolicy(crypto=crypto)
+    blockchain = Blockchain[SignedTrade](
+        consensus=SimpleConsnsus(hash_fn=sample_hash),
+        policy=policy,
+    )
+
+    blockchain.add_block(SignedTrade.sign(
+        trade=Trade(src=2, dst=4, value=3),
+        crypto=crypto
+    ))
+
+    with pytest.raises(IncorrectSignatureError):
+        blockchain.add_block(SignedTrade(
+            trade=Trade(src=2, dst=4, value=3),
+            signature=b"",
+        ))
