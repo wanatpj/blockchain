@@ -2,10 +2,11 @@ from dataclasses import dataclass
 
 from blockchain.crypto import Crypto
 
+
 @dataclass
 class Trade:
-    src: int
-    dst: int
+    src: bytes
+    dst: bytes
     value: int
 
 

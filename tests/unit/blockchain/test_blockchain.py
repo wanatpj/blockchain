@@ -5,7 +5,11 @@ import pytest
 from blockchain.blockchain import Block, Blockchain, SummaryBlockchain
 from blockchain.consensus.core import SimpleConsnsus
 from blockchain.crypto import Crypto, RSACrypto
-from blockchain.policy.sign import IncorrectSignatureError, SingleSignPolicy
+from blockchain.policy.sign import (
+    IncorrectSignatureError,
+    SingleSignPolicy,
+    SourceSignPolicy,
+)
 from blockchain.struct.allocation import Allocation
 from blockchain.struct.trade import SignedTrade, Trade
 
@@ -65,7 +69,7 @@ def test_trade_blockchain():
     ] == blockchain.raw_chain()
 
 
-def test_trade_blockchain():
+def test_allocation_summary_blockchain():
     blockchain = SummaryBlockchain[Allocation, Trade](
         consensus=SimpleConsnsus(hash_fn=sample_hash),
         summary_factory=Allocation,
@@ -82,19 +86,51 @@ def test_trade_blockchain():
 
 def test_trade_blockchain_with_single_sign_policy():
     crypto: Crypto = RSACrypto.gen()
-    policy = SingleSignPolicy(crypto=crypto)
     blockchain = Blockchain[SignedTrade](
         consensus=SimpleConsnsus(hash_fn=sample_hash),
-        policy=policy,
+        policy=SingleSignPolicy(crypto=crypto),
     )
 
-    blockchain.add_block(SignedTrade.sign(
-        trade=Trade(src=2, dst=4, value=3),
-        crypto=crypto
-    ))
+    blockchain.add_block(
+        SignedTrade.sign(trade=Trade(src=2, dst=4, value=3), crypto=crypto)
+    )
 
     with pytest.raises(IncorrectSignatureError):
-        blockchain.add_block(SignedTrade(
-            trade=Trade(src=2, dst=4, value=3),
-            signature=b"",
-        ))
+        blockchain.add_block(
+            SignedTrade(
+                trade=Trade(src=2, dst=4, value=3),
+                signature=b"",
+            )
+        )
+
+
+def test_trade_blockchain_with_signed_source():
+    crypto_a: Crypto = RSACrypto.gen()
+    crypto_b: Crypto = RSACrypto.gen()
+    blockchain = Blockchain[SignedTrade](
+        consensus=SimpleConsnsus(hash_fn=sample_hash),
+        policy=SourceSignPolicy(),
+    )
+
+    with pytest.raises(IncorrectSignatureError):
+        blockchain.add_block(
+            SignedTrade.sign(
+                trade=Trade(
+                    src=crypto_a.public_id(),
+                    dst=crypto_b.public_id(),
+                    value=3,
+                ),
+                crypto=crypto_b,
+            )
+        )
+
+    blockchain.add_block(
+        SignedTrade.sign(
+            trade=Trade(
+                src=crypto_a.public_id(),
+                dst=crypto_b.public_id(),
+                value=3,
+            ),
+            crypto=crypto_a,
+        )
+    )

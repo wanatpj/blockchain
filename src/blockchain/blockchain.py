@@ -45,7 +45,10 @@ class Block(Generic[BLOCK_TYPE]):
 class Blockchain(Generic[BLOCK_TYPE]):
     def __init__(self, consensus: Consensus, policy: Optional[Policy] = None):
         self.consensus = consensus
-        self.block_builder = Block[BLOCK_TYPE].Builder(consensus=consensus, policy=policy)
+        self.block_builder = Block[BLOCK_TYPE].Builder(
+            consensus=consensus,
+            policy=policy,
+        )
         self.branch_blockhash: Dict[str, str] = {}
         self.block: Dict[str, Block[BLOCK_TYPE]] = {}
 
